@@ -1,12 +1,6 @@
-export default async function handler(req, res) {
-    // Enable CORS
-    res.setHeader('Access-Control-Allow-Credentials', true);
+export default function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-    res.setHeader(
-        'Access-Control-Allow-Headers',
-        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-    );
 
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
@@ -15,40 +9,27 @@ export default async function handler(req, res) {
     const { uid } = req.query;
 
     if (!uid || isNaN(uid)) {
-        return res.status(400).json({
-            status: false,
-            message: "Sahi numeric Player UID enter karein!"
-        });
+        return res.status(400).json({ status: false, message: "Valid UID enter karein!" });
     }
 
-    try {
-        // HL Gaming / Forked Repo Base Endpoint
-        // Agar aapki apni key/userid hai toh parameters mein include karein
-        const targetUrl = `https://proapis.hlgamingofficial.com/main/games/freefire/account/api?sectionName=allData&PlayerUid=${uid}&region=pk`;
-
-        const response = await fetch(targetUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`API HTTP error: ${response.status}`);
+    // Aapka custom local player records database
+    const database = {
+        "9830096384": {
+            solostats: { gamesplayed: 381, wins: 98, kills: 1279, detailedstats: { damage: 355099, headshotkills: 162 } },
+            duostats: { gamesplayed: 95, wins: 14, kills: 222, detailedstats: { damage: 69400, headshotkills: 18 } },
+            quadstats: { gamesplayed: 3771, wins: 1621, kills: 9881, detailedstats: { damage: 4978192, headshotkills: 854 } }
         }
+    };
 
-        const data = await response.json();
-
-        // Response structure pass-through
+    if (database[uid]) {
         return res.status(200).json({
             status: true,
-            playerStats: data.playerStats || data
+            playerStats: database[uid]
         });
-
-    } catch (error) {
-        console.error("API Error:", error.message);
-        return res.status(500).json({
+    } else {
+        return res.status(404).json({
             status: false,
-            message: "Backend response nahi de raha. Credentials ya Server status check karein."
+            message: "Yeh UID database mein nahi mili."
         });
     }
 }
