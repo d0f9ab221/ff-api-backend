@@ -1,5 +1,5 @@
-export default function handler(req, res) {
-    // Enable CORS for Netlify
+export default async function handler(req, res) {
+    // Enable CORS for Netlify Frontend
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -17,45 +17,44 @@ export default function handler(req, res) {
     if (!uid || isNaN(uid)) {
         return res.status(400).json({
             status: false,
-            message: "Sahi numeric UID enter karein!"
+            message: "Sahi numeric Player UID enter karein!"
         });
     }
 
-    // Dynamic clean stats generator based on UID input
-    const baseVal = parseInt(uid.slice(-4)) || 1234;
+    try {
+        // Active Live FF Info Endpoint (PK Region)
+        const response = await fetch(`https://freefireinfo-zy9l.onrender.com/api/v1/search-players?keyword=${uid}&server=PK`);
 
-    const responseData = {
-        status: true,
-        playerStats: {
-            solostats: {
-                gamesplayed: Math.floor(baseVal / 10),
-                wins: Math.floor(baseVal / 80),
-                kills: Math.floor(baseVal / 3),
-                detailedstats: {
-                    damage: baseVal * 250,
-                    headshotkills: Math.floor(baseVal / 12)
-                }
-            },
-            duostats: {
-                gamesplayed: Math.floor(baseVal / 5),
-                wins: Math.floor(baseVal / 45),
-                kills: Math.floor(baseVal / 2),
-                detailedstats: {
-                    damage: baseVal * 450,
-                    headshotkills: Math.floor(baseVal / 8)
-                }
-            },
-            quadstats: {
-                gamesplayed: Math.floor(baseVal / 2),
-                wins: Math.floor(baseVal / 15),
-                kills: baseVal * 2,
-                detailedstats: {
-                    damage: baseVal * 1200,
-                    headshotkills: Math.floor(baseVal / 3)
-                }
-            }
+        if (!response.ok) {
+            throw new Error(`Server returned status ${response.status}`);
         }
-    };
 
-    return res.status(200).json(responseData);
+        const data = await response.json();
+
+        if (data && data.infos && data.infos.length > 0) {
+            const player = data.infos.find(p => p.accountid === uid) || data.infos[0];
+
+            return res.status(200).json({
+                status: true,
+                data: {
+                    uid: player.accountid || uid,
+                    nickname: player.nickname || "Unknown",
+                    likes: parseInt(player.liked || 0),
+                    level: player.level || "N/A"
+                }
+            });
+        } else {
+            return res.status(404).json({
+                status: false,
+                message: "Yeh Player UID nahi mili!"
+            });
+        }
+
+    } catch (error) {
+        // Return clear error instead of fake data
+        return res.status(503).json({
+            status: false,
+            message: "Live API Server filhal offline hai. Thodi der baad dubara try karein."
+        });
+    }
 }
