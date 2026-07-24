@@ -21,74 +21,51 @@ export default async function handler(req, res) {
         });
     }
 
-    // List of multiple active API endpoints to try in sequence
-    const apiEndpoints = [
-        `https://ff-api-virtex.vercel.app/api/info?uid=${uid}`,
-        `https://region-ff-api.vercel.app/api/info?uid=${uid}`,
-        `https://freefireinfo-zy9l.onrender.com/api/v1/search-players?keyword=${uid}&server=PK`
-    ];
+    try {
+        // EquipAPI active regional endpoint
+        const targetUrl = `https://equipapi.vercel.app/api/ff?uid=${uid}&region=pk`;
 
-    for (const url of apiEndpoints) {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 second timeout per source
+        const response = await fetch(targetUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+            }
+        });
 
-            const response = await fetch(url, {
-                signal: controller.signal,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        // Extracting data based on EquipAPI format
+        if (result && (result.nickname || result.Name || result.basicInfo)) {
+            const nickname = result.nickname || result.Name || result.basicInfo?.nickname || "Unknown";
+            const likes = result.likes || result.Likes || result.basicInfo?.likes || 0;
+            const level = result.level || result.Level || result.basicInfo?.level || "N/A";
+            const region = result.region || result.Region || "PK";
+
+            return res.status(200).json({
+                status: true,
+                data: {
+                    uid: uid,
+                    nickname: nickname,
+                    likes: parseInt(likes),
+                    level: level,
+                    region: region
                 }
             });
-            clearTimeout(timeoutId);
-
-            if (response.ok) {
-                const data = await response.json();
-                
-                // Format 1: Direct JSON structures (AccountInfo / basicInfo)
-                const name = data.AccountInfo?.AccountName || data.basicInfo?.nickname || data.nickname || data.Name;
-                if (name) {
-                    return res.status(200).json({
-                        status: true,
-                        data: {
-                            uid: uid,
-                            nickname: name,
-                            likes: parseInt(data.AccountInfo?.Likes || data.likes || 0),
-                            level: data.AccountInfo?.Level || data.level || "N/A",
-                            region: data.AccountInfo?.AccountRegion || data.region || "PK"
-                        }
-                    });
-                }
-
-                // Format 2: Array search results (infos array)
-                if (data.infos && data.infos.length > 0) {
-                    const player = data.infos.find(p => p.accountid === uid) || data.infos[0];
-                    return res.status(200).json({
-                        status: true,
-                        data: {
-                            uid: player.accountid || uid,
-                            nickname: player.nickname || "Unknown",
-                            likes: parseInt(player.liked || 0),
-                            level: player.level || "N/A",
-                            region: player.region || "PK"
-                        }
-                    });
-                }
-            }
-        } catch (err) {
-            // If current endpoint fails or times out, loop continues to next endpoint
-            console.log(`Endpoint failed: ${url}`);
+        } else {
+            return res.status(404).json({
+                status: false,
+                message: "Player info nahi mili is UID par."
+            });
         }
+
+    } catch (error) {
+        console.error("Fetch Error:", error.message);
+        return res.status(500).json({
+            status: false,
+            message: "API server filhal response nahi de raha. Thodi der baad try karein."
+        });
     }
-
-    // Fallback response if external services are unavailable
-    return res.status(200).json({
-        status: true,
-        data: {
-            uid: uid,
-            nickname: "FF_Player_" + uid.slice(-4),
-            likes: 1250,
-            level: "65",
-            region: "PK"
-        }
-    });
 }
