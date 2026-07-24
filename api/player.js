@@ -1,6 +1,12 @@
 export default async function handler(req, res) {
+    // Enable CORS
+    res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    );
 
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
@@ -9,36 +15,40 @@ export default async function handler(req, res) {
     const { uid } = req.query;
 
     if (!uid || isNaN(uid)) {
-        return res.status(400).json({ status: false, message: "Numeric UID required!" });
+        return res.status(400).json({
+            status: false,
+            message: "Sahi numeric Player UID enter karein!"
+        });
     }
 
-    // Direct Active API Attempt
     try {
-        const response = await fetch(`https://freefireinfo-zy9l.onrender.com/api/v1/search-players?keyword=${uid}&server=PK`);
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data && data.infos && data.infos.length > 0) {
-                const player = data.infos.find(p => p.accountid === uid) || data.infos[0];
-                return res.status(200).json({
-                    status: true,
-                    data: {
-                        uid: player.accountid || uid,
-                        nickname: player.nickname,
-                        likes: parseInt(player.liked || 0),
-                        level: player.level,
-                        region: player.region || "PK"
-                    }
-                });
-            }
-        }
-    } catch (e) {
-        console.log("API Error:", e);
-    }
+        // HL Gaming / Forked Repo Base Endpoint
+        // Agar aapki apni key/userid hai toh parameters mein include karein
+        const targetUrl = `https://proapis.hlgamingofficial.com/main/games/freefire/account/api?sectionName=allData&PlayerUid=${uid}&region=pk`;
 
-    // NO FAKE DATA ANYMORE - Direct Error Response
-    return res.status(500).json({
-        status: false,
-        message: "Public APIs down hain. Aapki apni custom API ki zaroorat hai!"
-    });
+        const response = await fetch(targetUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`API HTTP error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Response structure pass-through
+        return res.status(200).json({
+            status: true,
+            playerStats: data.playerStats || data
+        });
+
+    } catch (error) {
+        console.error("API Error:", error.message);
+        return res.status(500).json({
+            status: false,
+            message: "Backend response nahi de raha. Credentials ya Server status check karein."
+        });
+    }
 }
