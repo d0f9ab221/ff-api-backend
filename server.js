@@ -12,56 +12,39 @@ app.get('/api/player', async (req, res) => {
     const { uid } = req.query;
 
     if (!uid || isNaN(uid)) {
-        return res.status(400).json({
-            status: false,
-            message: "Valid numeric UID is required."
-        });
+        return res.status(400).json({ status: false, message: "Numeric UID required." });
     }
 
-    try {
-        const response = await axios.get(`https://freefire-virtex-api.vercel.app/api/info?uid=${uid}`, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'application/json'
-            },
-            timeout: 8000
-        });
+    // Multiple sources array
+    const endpoints = [
+        `https://ff-api-virtex.vercel.app/api/info?uid=${uid}`,
+        `https://freefire-virtex-api.vercel.app/api/info?uid=${uid}`
+    ];
 
-        const data = response.data;
-
-        const name = data.AccountInfo?.AccountName || data.basicInfo?.nickname || data.nickname || data.Name;
-        const likes = data.AccountInfo?.Likes || data.basicInfo?.liked || data.likes || data.Likes || 0;
-        const level = data.AccountInfo?.Level || data.basicInfo?.level || data.level || data.Level || "N/A";
-        const region = data.AccountInfo?.AccountRegion || data.basicInfo?.region || data.region || "N/A";
-
-        if (name) {
-            return res.json({
-                status: true,
-                data: {
-                    uid: uid,
-                    nickname: name,
-                    likes: parseInt(likes),
-                    level: level,
-                    region: region
-                }
-            });
-        } else {
-            return res.status(404).json({
-                status: false,
-                message: "Player info not found for this UID."
-            });
+    for (let url of endpoints) {
+        try {
+            const response = await axios.get(url, { timeout: 5000 });
+            const data = response.data;
+            const name = data.AccountInfo?.AccountName || data.basicInfo?.nickname || data.nickname || data.Name;
+            
+            if (name) {
+                return res.json({
+                    status: true,
+                    data: {
+                        uid: uid,
+                        nickname: name,
+                        likes: parseInt(data.AccountInfo?.Likes || data.likes || 0),
+                        level: data.AccountInfo?.Level || data.level || "N/A",
+                        region: data.AccountInfo?.AccountRegion || data.region || "N/A"
+                    }
+                });
+            }
+        } catch (e) {
+            console.log("Failed endpoint, trying next...");
         }
-
-    } catch (error) {
-        console.error("Error:", error.message);
-        return res.status(500).json({
-            status: false,
-            message: "Failed to retrieve player stats. Target service might be down."
-        });
     }
+
+    return res.status(500).json({ status: false, message: "Free Fire APIs temporarily down. Try again later." });
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
-
+app.listen(PORT, () => console.log(`Running on ${PORT}`));
