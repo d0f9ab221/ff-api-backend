@@ -1,6 +1,12 @@
 export default function handler(req, res) {
+    // Enable CORS for Netlify
+    res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    );
 
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
@@ -9,27 +15,47 @@ export default function handler(req, res) {
     const { uid } = req.query;
 
     if (!uid || isNaN(uid)) {
-        return res.status(400).json({ status: false, message: "Valid UID enter karein!" });
+        return res.status(400).json({
+            status: false,
+            message: "Sahi numeric UID enter karein!"
+        });
     }
 
-    // Aapka custom local player records database
-    const database = {
-        "9830096384": {
-            solostats: { gamesplayed: 381, wins: 98, kills: 1279, detailedstats: { damage: 355099, headshotkills: 162 } },
-            duostats: { gamesplayed: 95, wins: 14, kills: 222, detailedstats: { damage: 69400, headshotkills: 18 } },
-            quadstats: { gamesplayed: 3771, wins: 1621, kills: 9881, detailedstats: { damage: 4978192, headshotkills: 854 } }
+    // Dynamic clean stats generator based on UID input
+    const baseVal = parseInt(uid.slice(-4)) || 1234;
+
+    const responseData = {
+        status: true,
+        playerStats: {
+            solostats: {
+                gamesplayed: Math.floor(baseVal / 10),
+                wins: Math.floor(baseVal / 80),
+                kills: Math.floor(baseVal / 3),
+                detailedstats: {
+                    damage: baseVal * 250,
+                    headshotkills: Math.floor(baseVal / 12)
+                }
+            },
+            duostats: {
+                gamesplayed: Math.floor(baseVal / 5),
+                wins: Math.floor(baseVal / 45),
+                kills: Math.floor(baseVal / 2),
+                detailedstats: {
+                    damage: baseVal * 450,
+                    headshotkills: Math.floor(baseVal / 8)
+                }
+            },
+            quadstats: {
+                gamesplayed: Math.floor(baseVal / 2),
+                wins: Math.floor(baseVal / 15),
+                kills: baseVal * 2,
+                detailedstats: {
+                    damage: baseVal * 1200,
+                    headshotkills: Math.floor(baseVal / 3)
+                }
+            }
         }
     };
 
-    if (database[uid]) {
-        return res.status(200).json({
-            status: true,
-            playerStats: database[uid]
-        });
-    } else {
-        return res.status(404).json({
-            status: false,
-            message: "Yeh UID database mein nahi mili."
-        });
-    }
+    return res.status(200).json(responseData);
 }
